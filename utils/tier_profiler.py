@@ -14,7 +14,13 @@ import sys
 from model.resnet110_7t import resnet56_SFL_local_tier_7
 from model.resnet110_7t import resnet56_SFL_fedavg_base
 
+import os
+
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../")))
 from api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
+
+
 
 
 def add_args(parser):
