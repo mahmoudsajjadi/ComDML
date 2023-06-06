@@ -30,6 +30,7 @@ import sys
 import wandb
 import argparse
 import logging
+import concurrent.futures
 
 
 import warnings
@@ -121,14 +122,14 @@ def add_args(parser):
         
     # Federated learning related arguments
     parser.add_argument('--client_epoch', default=1, type=int)
-    parser.add_argument('--client_number', type=int, default=10, metavar='NN',
+    parser.add_argument('--client_number', type=int, default=4, metavar='NN',
                         help='number of workers in a distributed cluster')
     parser.add_argument('--batch_size', type=int, default=128, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--rounds', default=100, type=int)
     parser.add_argument('--whether_local_loss', default=True, type=bool)
     parser.add_argument('--whether_local_loss_v2', default=False, type=bool)
-    parser.add_argument('--whether_FedAVG_base', default=1, type=int) # this is for base line of fedavg
+    parser.add_argument('--whether_FedAVG_base', default=0, type=int) # this is for base line of fedavg
     parser.add_argument('--whether_multi_tier', default=True, type=bool)
     parser.add_argument('--whether_federation_at_clients', default=True, type=bool)
     parser.add_argument('--whether_aggregated_federation', default=1, type=int)
@@ -1719,6 +1720,8 @@ idxs_users, m = get_random_user_indices(num_users, DEFAULT_FRAC)
 
 # record all data transmitted in last involeved epoch
 data_transmitted_client_all = {}
+
+
     
 for iter in range(epochs):
     if iter == int(10) and False:
@@ -1786,30 +1789,28 @@ for iter in range(epochs):
     
     simulated_delay= np.zeros(num_users)
     
+    
+    # with Pool(processes=4) as pool:
+
+    #     result = pool.apply_async(client_training, (1,))
+    # with concurrent.futures.ProcessPoolExecutor() as executor:
+    #     results = executor.map(client_training, idxs_users)
     for idx in idxs_users:
-        
         # Log the client tier for each client in WandB
-        # for i in range(0, num_users):
         wandb.log({"Client{}_Tier".format(idx): num_tiers - client_tier[idx] + 1, "epoch": iter}, commit=False)
         
-        
-        # calculate the delay to server send model to clients
-        # simulated_delay= np.zeros(num_users)
-        # for i in range(0, num_users):
-            # if i in idxs_users:
+        # calculate the delay of server send model to clients
         data_server_to_client = 0
         for k in w_glob_client_tier[client_tier[idx]]:
             data_server_to_client += sys.getsizeof(w_glob_client_tier[client_tier[idx]][k].storage())
         simulated_delay[idx] = data_server_to_client / net_speed[idx]
             # wandb.log({"Client{}_Tier".format(i): client_tier[i], "epoch": iter}, commit=False)
             
-            
-            
         data_transmited_fl_client = 0
         time_train_test_s = time.time()
         if whether_multi_tier:
             net_glob_client = net_model_client_tier[client_tier[idx]]
-            w_glob_client_tier[client_tier[idx]] = net_glob_client_tier[client_tier[idx]].state_dict() # may be I can eliminate this line
+            w_glob_client_tier[client_tier[idx]] = net_glob_client_tier[client_tier[idx]].state_dict() # this is weight of the model
         if args.dataset == "HAM10000":
             # for HAM10000 we split dataset among clients with idxs
             local = Client(net_glob_client, idx, lr, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
@@ -1890,6 +1891,9 @@ for iter in range(epochs):
         wandb.log({"Client{}_Data_Transmission(MB)".format(idx): data_transmitted_client/1024**2, "epoch": iter}, commit=False)
         wandb.log({"Client{}_Data_Transmission(MB)_Model_Parameters".format(idx): data_transmited_fl_client/1024**2, "epoch": iter}, commit=False)
         wandb.log({"Client{}_Data_Transmission(MB)_Intermediate_data".format(idx): data_transmited_sl_client/1024**2, "epoch": iter}, commit=False)
+        
+        
+        
     server_wait_time = (max(simulated_delay * client_epoch) - min(simulated_delay * client_epoch))
     wandb.log({"Server_wait_time": server_wait_time, "epoch": iter}, commit=False)
     # wandb.log({"Total_training_time_server": total_time, "epoch": iter}, commit=False)
