@@ -132,7 +132,7 @@ class Client(object):
             
         
 
-    def train(self, net):
+    def train(self, tier, net):
         net.train()
         self.lr = lr
         
@@ -158,14 +158,19 @@ class Client(object):
                     
                 
                 #---------forward prop-------------
-                extracted_features, fx = net(images)
-                
-                client_fx = fx.clone().detach().requires_grad_(True)
-                
-                
+                if tier != 0:
+                    extracted_features, fx = net(images)
                     
-                time_client += time.time() - time_s
-                time_train_server = train_server(client_fx, labels, iter, self.local_ep, self.idx, len_batch)
+                    client_fx = fx.clone().detach().requires_grad_(True)
+                    
+                    
+                        
+                    time_client += time.time() - time_s
+                    
+                    time_train_server = train_server(client_fx, labels, iter, self.local_ep, self.idx, len_batch)
+                else:
+                    extracted_features = net(images)
+                    time_train_server = 0
                 
                 
                 #--------backward prop -------------
@@ -181,9 +186,9 @@ class Client(object):
                 optimizer_client.step()
                 time_client += time.time() - time_s
                 
-                
-                data_transmited_sl_client += (sys.getsizeof(client_fx.storage()) + 
-                                      sys.getsizeof(labels.storage()))
+                if tier != 0:
+                    data_transmited_sl_client += (sys.getsizeof(client_fx.storage()) + 
+                                          sys.getsizeof(labels.storage()))
 
        
         
@@ -221,7 +226,7 @@ def trainer(tier, net_glob_client_tier, net_glob_server_tier, w_glob_client_tier
         
     # Training ------------------
     
-    [w_client, duration, data_transmited_sl_client, time_train_server] = local.train(net = copy.deepcopy(net_glob_client_tier).to(device))
+    [w_client, duration, data_transmited_sl_client, time_train_server] = local.train(tier, net = copy.deepcopy(net_glob_client_tier).to(device))
         
     
         
@@ -276,9 +281,13 @@ def tier_profiler(batch_size, dataset, num_tiers = 7) -> list[list]:
     # w_glob_client_tier = net_glob_client_tier.state_dict()
     
     
-    for tier in range(1, num_tiers + 1):
+    for tier in range(0, num_tiers + 1):
         global net_glob_server_tier
-        net_glob_client_tier, net_glob_server_tier = resnet56_SFL_local_tier_7(classes=class_num,tier=tier)
+        
+        if tier == 0:
+            net_glob_client_tier = resnet56_SFL_fedavg_base(classes=class_num,tier=1, fedavg_base = True)
+        else:
+            net_glob_client_tier, net_glob_server_tier = resnet56_SFL_local_tier_7(classes=class_num,tier=tier)
         
         
         net_glob_client_tier.train()

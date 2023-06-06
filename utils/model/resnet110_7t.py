@@ -1238,7 +1238,8 @@ def resnet56_SFL_tier_7(classes, tier=5, **kwargs):
 
 
 def resnet56_SFL_fedavg_base(classes, tier=5, **kwargs):
-    net_glob_client = ResNet(Bottleneck, [6, 6, 6, 6, 6, 6], num_classes = classes, tier = tier, local_loss=True, **kwargs) 
+    # net_glob_client = ResNet(Bottleneck, [6, 6, 6, 6, 6, 6], num_classes = classes, tier = tier, local_loss=True, **kwargs) 
+    net_glob_client = ResNet(Bottleneck, [3, 3, 3, 3, 3, 3], num_classes = classes, tier = tier, local_loss=True, **kwargs) 
     return net_glob_client
 
 
