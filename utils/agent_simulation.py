@@ -14,7 +14,7 @@ def add_args(parser):
     parser.add_argument('--net_speed_list', type=str, default=[100, 50, 10],
                     metavar='N', help='list of net speeds in mega bytes')
     parser.add_argument('--computation_time_list', type=str, default=[16, 22, 54, 72, 256],
-                    metavar='N', help='list of computation time to perform each batch')
+                    metavar='N', help='list of computation time to perform each batch (s)')
     
     args = parser.parse_args()
     return args
@@ -56,4 +56,4 @@ def agent_simulation(num_agents: int) -> list[list]:# , list:
     
     
     
-agent_simulation(4)
+# agent_simulation(4)

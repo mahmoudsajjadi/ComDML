@@ -69,15 +69,15 @@ def load_data(args, dataset_name): # only for cifar-10
     return dataset
 
 
-dataset = load_data(args, args.dataset)
-[train_data_num, test_data_num, train_data_global, test_data_global,
- train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
+# dataset = load_data(args, args.dataset)
+# [train_data_num, test_data_num, train_data_global, test_data_global,
+#  train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
 
-dataset_test = test_data_local_dict
-dataset_train = train_data_local_dict
+# dataset_test = test_data_local_dict
+# dataset_train = train_data_local_dict
 
 
-net_glob_client_tier, net_glob_server_tier = resnet56_SFL_local_tier_7(classes=class_num,tier=1)
+
 
 def train_server(fx_client, y, l_epoch_count, l_epoch, idx, len_batch):
     global net_model_server, criterion, optimizer_server, device, batch_acc_train, batch_loss_train, l_epoch_check, fed_check
@@ -208,8 +208,11 @@ if torch.cuda.is_available():
     
 def trainer(tier, net_glob_client_tier, net_glob_server_tier, w_glob_client_tier, dataset):
     
-
+    [train_data_num, test_data_num, train_data_global, test_data_global,
+      train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
     
+
+    net_glob_client_tier, net_glob_server_tier = resnet56_SFL_local_tier_7(classes=class_num,tier=1)
     net_glob_client_tier.to(device)
     
     
@@ -256,7 +259,7 @@ def trainer(tier, net_glob_client_tier, net_glob_server_tier, w_glob_client_tier
     
         
 
-def tier_profiler(batch_size, dataset, num_tiers = 7) -> list[list]:
+def tier_profiler(batch_size, dataset, dataset_train, dataset_test, num_tiers = 7) -> list[list]:
     '''
     
 
@@ -274,7 +277,7 @@ def tier_profiler(batch_size, dataset, num_tiers = 7) -> list[list]:
     Returns
     -------
     [first_side_time, second_side_time, batch_data_size]
-        DESCRIPTION.
+        batch_data_size: size of each batch of data in (mb)
 
     '''
     tier_sides_times_size = []
@@ -309,4 +312,4 @@ def tier_profiler(batch_size, dataset, num_tiers = 7) -> list[list]:
         
     return tier_sides_times_size
 
-tier_profiler(128, 'cifar-10', num_tiers = 7)
+# tier_profiler(128, 'cifar-10', num_tiers = 7)
