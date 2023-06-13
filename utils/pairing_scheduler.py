@@ -142,7 +142,7 @@ def AgentRemainingTime(i, j, net_speeds, computation_speeds, remaining_times, nu
             tau_m_ji_list.append(tau_wait_i + remaining_batch_numbers[j] / max(tau_m_j , tau_m_ji , tau_m_i) )
     
     tau_m_j_list.append(min(tau_m_ji_list)) # so far I have not considered if the this tier selection makes the fast agent time bigger than this slow agent
-    print(tau_m_ji_list)
+    # print(tau_m_ji_list)
     tier_ji.append(tau_m_ji_list.index(tau_m_j_list[-1]))
         
     tau_j = min(tau_m_j_list)
@@ -161,6 +161,7 @@ remaining_batch_numbers = [12, 10, 15, 10, 12]
 remaining_times = list(np.array(remaining_batch_numbers) / np.array(computation_speeds)) # if continue without offloading
 
 num_agents, i, j = 5, 1, 3 # client j offloads to agent i
+agents_list = [0, 1, 2, 3, 4]
 
 # parameters related to the split layer
 num_tiers = 4
@@ -168,7 +169,7 @@ batch_data_tier_size = [0, 20, 35, 30]
 slow_fast_tier_training_time = [[1, 0], [0.8, 0.4], [0.6, 0.6], [0.2, 0.9]]
 
  
-tau_j, tier_j = AgentRemainingTime(i, j, net_speeds, computation_speeds, remaining_times, num_tiers, remaining_batch_numbers, num_agents, batch_data_tier_size, slow_fast_tier_training_time)
+# tau_j, tier_j = AgentRemainingTime(i, j, net_speeds, computation_speeds, remaining_times, num_tiers, remaining_batch_numbers, len(agents_list), batch_data_tier_size, slow_fast_tier_training_time)
 # tau_j, tier_j = AgentRemainingTime_check_others(j, net_speeds, computation_speeds, remaining_times, num_tiers, remaining_batch_numbers, num_agents, batch_data_tier_size)
 
 
@@ -187,3 +188,38 @@ def pairing_scheduler(i, net_speeds, computation_speeds, remaining_times, num_ti
         
     
     return tau, tier
+
+
+
+
+paired_list = {}
+remaining_times_initial = remaining_times.copy()
+remaining_times_with_pairing = remaining_times.copy()
+
+while len(agents_list) > 1:
+    index_agent_complete = remaining_times_initial.index(min(remaining_times))
+
+    i = index_agent_complete
+    agents_remaining_time_paired = {}
+    for j in agents_list:
+        tau_j, tier_j = AgentRemainingTime(i, j, net_speeds, computation_speeds, remaining_times_initial, num_tiers, remaining_batch_numbers, len(agents_list), batch_data_tier_size, slow_fast_tier_training_time)
+        agents_remaining_time_paired[j] = tau_j
+        max(agents_remaining_time_paired.values())
+        print(f'i={i}, j={j}, tau_j={tau_j}, tier_j={tier_j}')
+    j = max(agents_remaining_time_paired, key=agents_remaining_time_paired.get)
+    remaining_times_with_pairing[j] = max(agents_remaining_time_paired.values())
+    agents_list.remove(i), agents_list.remove(j)
+    # remaining_times.pop(i), remaining_times.pop(j)
+    remaining_times.remove(remaining_times_initial[i])
+    remaining_times.remove(remaining_times_initial[j])
+    paired_list[i] = j
+
+
+'''
+for i in agents_list: # i help agent j
+    for j in agents_list:
+        tau_j, tier_j = AgentRemainingTime(i, j, net_speeds, computation_speeds, remaining_times, num_tiers, remaining_batch_numbers, len(agents_list), batch_data_tier_size, slow_fast_tier_training_time)
+        print(f'i={i}, j={j}, tau_j={tau_j}, tier_j={tier_j}')
+        
+        
+'''
