@@ -62,6 +62,13 @@ from api.data_preprocessing.cinic10.data_loader import load_partition_data_cinic
 # from api.data_preprocessing.ImageNet.data_loader import load_partition_data_ImageNet
 
 
+# related to fully distributed method
+from utils.agent_simulation import agent_simulation
+from utils.tier_profiler import tier_profiler
+from utils.pairing_scheduler import pairing_scheduler
+from utils.pairing_scheduler import pairing
+
+
 import matplotlib
 matplotlib.use('Agg')
 import copy
@@ -124,7 +131,7 @@ def add_args(parser):
     parser.add_argument('--client_epoch', default=1, type=int)
     parser.add_argument('--client_number', type=int, default=4, metavar='NN',
                         help='number of workers in a distributed cluster')
-    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--rounds', default=100, type=int)
     parser.add_argument('--whether_local_loss', default=True, type=bool)
@@ -168,12 +175,30 @@ def add_args(parser):
                     metavar='N', help='list of net speeds in mega bytes')
     parser.add_argument('--delay_coefficient_list', type=str, default=[16, 22, 54, 72, 256],
                     metavar='N', help='list of delay coefficients')
+    parser.add_argument('--computation_speeds_list', type=str, default=[0.4, 1, 1.2, 0.2, 0.8],
+                    metavar='N', help='list of computation speed per batch')
     
     args = parser.parse_args()
     return args
 
 DYNAMIC_LR_THRESHOLD = 0.0001
 DEFAULT_FRAC = 1.0        # participation of clients; if 1 then 100% clients participate in SFLV1
+
+
+remaining_batch_numbers = [12, 10, 15, 10, 12] # update this later to exact amount
+net_speeds = [[np.inf, 50, 50, 20, 0],
+              [50, np.inf, 50, 10, 10],
+              [50, 50, np.inf, 50, 10],
+              [50, 10, 50, np.inf, 0],
+              [0, 10, 10, 0, np.inf]] # mbps
+computation_speeds = [0.4, 1, 1.2, 0.2, 0.8] # batch per second
+remaining_times = list(np.array(remaining_batch_numbers) / np.array(computation_speeds))
+
+TIER_ZERO = 0
+
+# This comes from pre experiment based on the global model
+batch_data_tier_size = [0, 20, 35, 30, 50, 60, 70, 55]  
+slow_fast_tier_training_time = [[1, 0], [0.8, 0.4], [0.7, 0.5], [0.65, 0.45], [0.6, 0.6], [0.5, 0.7], [0.4, 0.7], [0.2, 0.9]]
 
 
 NUM_CPUs = os.cpu_count()
@@ -200,6 +225,9 @@ wandb.init(
 
 
 SFL_local_tier = resnet56_SFL_local_tier_7
+
+
+
 
 ### model selection
 
@@ -272,7 +300,6 @@ elif num_tiers == 7:
     client_type_percent = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
     tier = 1
 
-    
 
 client_number_tier = (np.dot(args.client_number , client_type_percent))
 
@@ -301,20 +328,15 @@ net_speed_list = list(np.array(args.net_speed_list) * 1024 ** 2)
 #net_speed_list = list(np.array([10,10,10,10,10]) * 10240000 ** 2)
 net_speed = net_speed_list * (args.client_number // 5 + 1)
 
-# delay_coefficient_list = [1000,2000,2500,3000,10000]
-# delay_coefficient = random.choices(delay_coefficient_list, k=args.client_number)
-# delay_coefficient = [16,20,32,72,256] * (args.client_number // 5 + 1)  # coeffieient list for simulation computational power
-# delay_coefficient = [16,16,16,16,16] * 100 # to check and debug
 
-# delay_coefficient = list(np.array(delay_coefficient)/10)
-
-# delay_coefficient_list = [16,22,54,72,256]
-# args.delay_coefficient_list = [int(i) for i in args.delay_coefficient_list.split()]
-#delay_coefficient_list = [16,16,16,16,16]
 delay_coefficient_list = list(np.array(args.delay_coefficient_list)/4)
 
 delay_coefficient = delay_coefficient_list * (args.client_number // 5 + 1)  # coeffieient list for simulation computational power
 delay_coefficient = list(np.array(delay_coefficient))
+
+
+computation_speeds = args.computation_speeds_list * (args.client_number // 5 + 1)
+
 
 ############### Client profiles definitions ###############
 client_cpus_gpus = [(0, 0.5, 0), (1, 0.5, 0), (2, 0, 1), (3, 2, 0), (4, 1, 0),
@@ -350,6 +372,14 @@ data_transmited_fl = 0 # model parameter
 data_transmited_sl = 0 # intermediate data
 
 whether_distillation_on_the_server =args.whether_distillation_on_the_server
+
+
+agents_list = list(range(num_users))
+# agents_ordered_list = agents_list
+# paired_list, tier_list = pairing(agents_ordered_list, net_speeds, computation_speeds,
+#                                  remaining_times, num_tiers, remaining_batch_numbers, batch_data_tier_size,
+#                                  slow_fast_tier_training_time)
+
 
 # =====
 #   load dataset
@@ -423,6 +453,10 @@ if args.dataset != "HAM10000" and args.dataset != "cinic10":
     avg_dataset = sum(sataset_size.values()) / len(sataset_size)
     
 
+
+### fully distributed initialization
+
+# tier_profiler(args.batch_size, dataset, dataset_train, dataset_test)
 
 
 
@@ -539,6 +573,7 @@ else:
     # net_glob_client_tier[1],_ = resnet101_local_tier(classes=class_num,tier=1)
     for i in range(1,num_tiers+1):
         net_glob_client_tier[i],_ = SFL_local_tier(classes=class_num,tier=i)
+    net_glob_client_tier[0] = copy.deepcopy(init_glob_model)
 
     
 # net_glob_client = ResNet18_client_side(Baseblock, [2], class_num)
@@ -833,12 +868,7 @@ elif args.version == 2:
     net_server = copy.deepcopy(net_model_server[0]).to(device)
     net_server = copy.deepcopy(net_model_server_tier[client_tier[0]]).to(device)
         
-# for i in range(1, num_tiers+1): # chenge to only one model for each server tier type
-#     net_model_server_tier[i] = net_glob_server_tier[i]
 
-# for t in range(1,num_tiers):  # check number of model in server and client
-#     net_model_client_tier[t] = net_glob_client_tier[t]
-# net_model_server_tier[] = [net_glob_server for i in range(num_users)]
 
 #optimizer_server = torch.optim.Adam(net_server.parameters(), lr = lr)
 optimizer_server_glob =  torch.optim.Adam(net_server.parameters(), lr=lr, weight_decay=args.wd, amsgrad=True) # from fedgkt code
@@ -1241,12 +1271,12 @@ class Client(object):
         CEloss_client_train = []
         Dcorloss_client_train = []
         KDloss_client_train = []
-        if args.whether_FedAVG_base:
+        if args.whether_FedAVG_base or client_tier[idx] == 0:
             epoch_acc = []
             epoch_loss = []
         for iter in range(self.local_ep):
             len_batch = len(self.ldr_train)
-            if args.whether_FedAVG_base:
+            if args.whether_FedAVG_base or client_tier[idx] == 0:
                  batch_acc = []
                  batch_loss = []
             for batch_idx, (images, labels) in enumerate(self.ldr_train):
@@ -1260,7 +1290,7 @@ class Client(object):
                 images, labels = images.to(self.device), labels.to(self.device)
                 optimizer_client.zero_grad()
                 
-                if args.whether_FedAVG_base:
+                if args.whether_FedAVG_base or client_tier[idx] == 0:
                     fx = net(images)
                     if args.dataset != 'HAM10000':
                         labels = labels.to(torch.long)
@@ -1364,7 +1394,7 @@ class Client(object):
                     else:
                         data_transmited_sl_client += (sys.getsizeof(client_fx.storage()) + 
                                               sys.getsizeof(labels.storage()) + sys.getsizeof(dfx.storage()))
-            if args.whether_FedAVG_base:
+            if args.whether_FedAVG_base or client_tier[idx] == 0:
                 epoch_loss.append(sum(batch_loss)/len(batch_loss))
                 epoch_acc.append(sum(batch_acc)/len(batch_acc))
                 prRed('Client{} Train => Local Epoch: {}  \tAcc: {:.3f} \tLoss: {:.4f}'
@@ -1388,7 +1418,7 @@ class Client(object):
         wandb.log({"Client{}_Training_Duration (s)".format(idx): time_client, "epoch": iter}, commit=False)
         print(f"Client{idx}_Training_Duration: {time_client:,.3f} (s)")
         
-        if args.whether_FedAVG_base:
+        if args.whether_FedAVG_base or client_tier[idx] == 0:
             return net.state_dict(), time_client, data_transmited_sl_client, sum(epoch_loss) / len(epoch_loss), sum(epoch_acc) / len(epoch_acc) 
         return net.state_dict(), time_client, data_transmited_sl_client 
     
@@ -1677,7 +1707,7 @@ if args.whether_aggregated_federation == 1 and not args.whether_FedAVG_base:
 # w_glob_client = init_glob_model.state_dict() # copy weights
 # net_glob_client_tier[tier].load_state_dict(w_glob_client) # copy weights
 net_model_client_tier = {}
-for i in range(1, num_tiers+1):
+for i in range(0, num_tiers+1):
     net_model_client_tier[i] = net_glob_client_tier[i]
     net_model_client_tier[i].train()
 for i in range(1, num_tiers+1):
@@ -1721,48 +1751,18 @@ idxs_users, m = get_random_user_indices(num_users, DEFAULT_FRAC)
 # record all data transmitted in last involeved epoch
 data_transmitted_client_all = {}
 
+agents_list = list(range(num_users))
+
+# the taks size, this can be in the loop if the task size changes over the rounds
+
+remaining_batch_numbers = [len(dataset_train[i].dataset.target) / args.batch_size for i in range(0,num_users)] 
+remaining_times = list(np.array(remaining_batch_numbers) / np.array(computation_speeds[:num_users]))
 
     
 for iter in range(epochs):
-    if iter == int(10) and False:
-        delay_coefficient[0] = delay_coefficient_list[2]
-        delay_coefficient[1] = delay_coefficient_list[3]
-        delay_coefficient[2] = delay_coefficient_list[4]
-        delay_coefficient[3] = delay_coefficient_list[0]
-        delay_coefficient[4] = delay_coefficient_list[0]
-        delay_coefficient[5] = delay_coefficient_list[4]
-        delay_coefficient[6] = delay_coefficient_list[4]
-        delay_coefficient[7] = delay_coefficient_list[0]
-        delay_coefficient[8] = delay_coefficient_list[1]
-        delay_coefficient[9] = delay_coefficient_list[1]
-    elif iter == int(20) and False:
-        delay_coefficient[0] = delay_coefficient_list[4]
-        delay_coefficient[1] = delay_coefficient_list[3]
-        delay_coefficient[2] = delay_coefficient_list[2]
-        delay_coefficient[3] = delay_coefficient_list[3]
-        delay_coefficient[4] = delay_coefficient_list[2]
-        delay_coefficient[5] = delay_coefficient_list[3]
-        delay_coefficient[6] = delay_coefficient_list[3]
-        delay_coefficient[7] = delay_coefficient_list[2]
-        delay_coefficient[8] = delay_coefficient_list[0]
-        delay_coefficient[9] = delay_coefficient_list[1]
-    elif iter == int(30) and False:
-        delay_coefficient[0] = delay_coefficient_list[4]
-        delay_coefficient[1] = delay_coefficient_list[2]
-        delay_coefficient[2] = delay_coefficient_list[4]
-        delay_coefficient[3] = delay_coefficient_list[3]
-        delay_coefficient[4] = delay_coefficient_list[2]
-        delay_coefficient[5] = delay_coefficient_list[1]
-        delay_coefficient[6] = delay_coefficient_list[3]
-        delay_coefficient[7] = delay_coefficient_list[0]
-        delay_coefficient[8] = delay_coefficient_list[1]
-        delay_coefficient[9] = delay_coefficient_list[2]
-                
-        # delay_coefficient = list(np.roll(delay_coefficient,1))
-        
     # If whether_FedAVG_base is True, initialize empty lists for train and test losses and accuracies
-    if args.whether_FedAVG_base:
-        loss_locals_train, acc_locals_train, loss_locals_test, acc_locals_test = [], [], [], []
+    # if args.whether_FedAVG_base:
+    loss_locals_train, acc_locals_train, loss_locals_test, acc_locals_test = [], [], [], []
     
     
     # Initialize empty lists for client weights
@@ -1770,7 +1770,7 @@ for iter in range(epochs):
     w_locals_client_tier = {}
     
     # Initialize a dictionary to store client weights based on their tiers
-    w_locals_client_tier = {i: [] for i in range(1, num_tiers+1)}
+    w_locals_client_tier = {i: [] for i in range(0, num_tiers+1)}
     
     # Initialize a numpy array to store client time
     client_observed_time = np.zeros(num_users)
@@ -1790,21 +1790,25 @@ for iter in range(epochs):
     simulated_delay= np.zeros(num_users)
     
     
-    # with Pool(processes=4) as pool:
-
-    #     result = pool.apply_async(client_training, (1,))
-    # with concurrent.futures.ProcessPoolExecutor() as executor:
-    #     results = executor.map(client_training, idxs_users)
+    # here pairing
+    
+    agents_ordered_list = agents_list
+    agents_ordered_list = np.argsort(remaining_times)[::-1]
+    
+    paired_list, client_tier = pairing(agents_ordered_list, net_speeds, computation_speeds,
+                                     remaining_times, num_tiers, remaining_batch_numbers, batch_data_tier_size,
+                                     slow_fast_tier_training_time)
+    
     for idx in idxs_users:
         # Log the client tier for each client in WandB
-        wandb.log({"Client{}_Tier".format(idx): num_tiers - client_tier[idx] + 1, "epoch": iter}, commit=False)
+        wandb.log({"Client{}_Tier".format(idx): num_tiers - client_tier[idx] + 1, "epoch": iter}, commit=False) # check to tier be in accordance of the paper order
         
-        # calculate the delay of server send model to clients
-        data_server_to_client = 0
-        for k in w_glob_client_tier[client_tier[idx]]:
-            data_server_to_client += sys.getsizeof(w_glob_client_tier[client_tier[idx]][k].storage())
-        simulated_delay[idx] = data_server_to_client / net_speed[idx]
-            # wandb.log({"Client{}_Tier".format(i): client_tier[i], "epoch": iter}, commit=False)
+        # # calculate the delay of server send model to clients
+        # data_server_to_client = 0
+        # for k in w_glob_client_tier[client_tier[idx]]:
+        #     data_server_to_client += sys.getsizeof(w_glob_client_tier[client_tier[idx]][k].storage())
+        # simulated_delay[idx] = data_server_to_client / net_speed[idx]
+        #     # wandb.log({"Client{}_Tier".format(i): client_tier[i], "epoch": iter}, commit=False)
             
         data_transmited_fl_client = 0
         time_train_test_s = time.time()
@@ -1827,26 +1831,12 @@ for iter in range(epochs):
             elif idx == idxs_users[0]:
                 local.evaluate(net = copy.deepcopy(net_glob_client).to(device), ell= iter)
         # Training ------------------
-        if args.whether_FedAVG_base:
-            # add multiprocessing here
-            # with Pool(processes=num_users) as pool:
-            #     net = copy.deepcopy(net_glob_client).to(device)
-            #     # results = pool.map(target=local.train, args=(net,))
-            #     results = pool.map_async(local.train, args=(net,))
-            #     results_multiprocess = results.get()
-            # print(results)
-            
-            # net = copy.deepcopy(net_glob_client).to(device)
-            # [w_client, duration, data_transmited_sl_client, loss_train, acc_train] = mp.Process(target=local.train, args=(net,))
-            # p = mp.Process(target=local.train, args=(net,))
+        if args.whether_FedAVG_base or client_tier[idx] == 0:
             [w_client, duration, data_transmited_sl_client, loss_train, acc_train] = local.train(net = copy.deepcopy(net_glob_client).to(device))    
-            # p.start()
             loss_locals_train.append(copy.deepcopy(loss_train))
             acc_locals_train.append(copy.deepcopy(acc_train))
         else:
             [w_client, duration, data_transmited_sl_client] = local.train(net = copy.deepcopy(net_glob_client).to(device))
-            # with mp.Pool(processes=len(idxs_users)) as pool:
-            #     results = [pool.apply_async(local.train, args=(Client(net_glob_client, idx, lr, device, dataset_train=dataset_train, dataset_test=dataset_test, idxs=dict_users[idx], idxs_test=dict_users_test[idx]), net_glob_client)) for idx in idxs_users]
             
         w_locals_client.append(copy.deepcopy(w_client))
         w_locals_client_tier[client_tier[idx]].append(copy.deepcopy(w_client))

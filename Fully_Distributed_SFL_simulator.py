@@ -125,13 +125,13 @@ def add_args(parser):
     parser.add_argument('--partition_method', type=str, default='hetero', metavar='N',
                         help='how to partition the dataset on local workers')
     parser.add_argument('--partition_alpha', type=float, default=1000000, metavar='PA',
-                        help='partition alpha (default: 0.5)')
+                        help='partition alpha (default: 0.5)') # 1000000
         
     # Federated learning related arguments
     parser.add_argument('--client_epoch', default=1, type=int)
     parser.add_argument('--client_number', type=int, default=2, metavar='NN',
                         help='number of workers in a distributed cluster')
-    parser.add_argument('--batch_size', type=int, default=1, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=100, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--rounds', default=100, type=int)
     parser.add_argument('--whether_local_loss', default=True, type=bool)
@@ -175,7 +175,7 @@ def add_args(parser):
                     metavar='N', help='list of net speeds in mega bytes')
     parser.add_argument('--delay_coefficient_list', type=str, default=[16, 22, 54, 72, 256],
                     metavar='N', help='list of delay coefficients')
-    parser.add_argument('--computation_speeds_list', type=str, default=[0.4, 1, 1.2, 0.2, 0.8],
+    parser.add_argument('--computation_speeds_list', type=str, default=[27, 21, 12, 6.5, 1.7],
                     metavar='N', help='list of computation speed per batch')
     
     args = parser.parse_args()
@@ -194,11 +194,36 @@ net_speeds = [[np.inf, 50, 50, 20, 0],
 computation_speeds = [0.4, 1, 1.2, 0.2, 0.8] # batch per second
 remaining_times = list(np.array(remaining_batch_numbers) / np.array(computation_speeds))
 
+def define_network_speeds(num_agents):
+    net_speeds = np.full((num_agents, num_agents), 0)
+    infinity = 99999999
+
+    # Set diagonal elements to infinity (self-communication speed is irrelevant)
+    np.fill_diagonal(net_speeds, infinity)
+
+    # Set the communication speed between agents
+    for i in range(num_agents):
+        for j in range(num_agents):
+            if i != j:
+                if abs(i - j) == 1:  # Set communication speed between adjacent agents
+                    net_speeds[i][j] = 100
+                elif abs(i - j) == 2:  # Set communication speed between agents with a distance of 2
+                    net_speeds[i][j] = 50
+                elif abs(i - j) == 3:  # Set communication speed between agents with a distance of 5
+                    net_speeds[i][j] = 20
+                else:  # Set communication speed between agents with a distance of 6 (assuming there are 10 agents)
+                    net_speeds[i][j] = 10
+
+    return net_speeds
+
+
+
 TIER_ZERO = 0
 
 # This comes from pre experiment based on the global model
-batch_data_tier_size = [0, 20, 35, 30, 50, 60, 70, 55]  
-slow_fast_tier_training_time = [[1, 0], [0.8, 0.4], [0.7, 0.5], [0.65, 0.45], [0.6, 0.6], [0.5, 0.7], [0.4, 0.7], [0.2, 0.9]]
+batch_data_tier_size = [0, 1.25, 1.25, 2.5, 2.5, 5, 5, 1.25]  
+slow_fast_tier_training_time = [[1, 0], [0.99, 0.02], [0.73, 0.13], [0.64, 0.26], 
+                                [0.56, 0.43], [0.35, 0.51], [0.24, 0.65], [0.01, 0.99]]
 
 
 NUM_CPUs = os.cpu_count()
@@ -206,6 +231,8 @@ NUM_CPUs = os.cpu_count()
 parser = argparse.ArgumentParser()
 args = add_args(parser)
 logging.info(args)
+
+net_speeds = define_network_speeds(args.client_number)
 
 args.whether_FedAVG_base = True if args.whether_FedAVG_base == 1 else False # I have to change True to 1 since Wandb have problem with bool
 
@@ -231,8 +258,10 @@ SFL_local_tier = resnet56_SFL_local_tier_7
 
 ### model selection
 
-
-class_num = 10
+if args.dataset == 'cifar10':
+    class_num = 10
+elif args.dataset == 'cifar100':
+    class_num = 100
 
 if args.whether_FedAVG_base:
     if args.model == 'resnet56_7':
@@ -297,7 +326,7 @@ if args.whether_FedAVG_base:
 
 
 elif num_tiers == 7:
-    client_type_percent = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    client_type_percent = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
     tier = 1
 
 
@@ -336,6 +365,7 @@ delay_coefficient = list(np.array(delay_coefficient))
 
 
 computation_speeds = args.computation_speeds_list * (args.client_number // 5 + 1)
+computation_speeds = list(np.array(computation_speeds) / 4) # to adjust simulation to real experiments
 
 
 ############### Client profiles definitions ###############
@@ -692,6 +722,7 @@ else:
     _, net_glob_server = SFL_local_tier(classes=class_num,tier=tier) # local loss SplitFed
     for i in range(1,num_tiers+1):
         _, net_glob_server_tier[i] = SFL_local_tier(classes=class_num,tier=i)
+    net_glob_server_tier[0] = copy.deepcopy(init_glob_model)
     
     
 if torch.cuda.device_count() > 1:
@@ -838,6 +869,17 @@ for i in range(1,num_tiers+1):
 
 # net_glob_client_tier[tier].load_state_dict(w_glob_client)
 # w_glob_client_tier[tier] = net_glob_client_tier[tier].state_dict()
+
+
+############## for initializing tiers 
+# remaining_batch_numbers = [len(dataset_train[i].dataset.target) / args.batch_size for i in range(0,num_users)] 
+# remaining_times = list(np.array(remaining_batch_numbers) / np.array(computation_speeds[:num_users]))
+
+# agents_ordered_list = agents_list
+# agents_ordered_list = np.argsort(remaining_times)[::-1]
+# paired_list, client_tier, tau_i_list = pairing(agents_ordered_list, net_speeds, computation_speeds,
+#                                   remaining_times, num_tiers+1, remaining_batch_numbers, batch_data_tier_size,
+#                                   slow_fast_tier_training_time)
 
 #client idx collector
 idx_collect = []
@@ -1710,7 +1752,7 @@ net_model_client_tier = {}
 for i in range(0, num_tiers+1):
     net_model_client_tier[i] = net_glob_client_tier[i]
     net_model_client_tier[i].train()
-for i in range(1, num_tiers+1):
+for i in range(0, num_tiers+1):
     w_glob_client_tier[i] = net_glob_client_tier[i].state_dict()
 
 
@@ -1755,9 +1797,14 @@ agents_list = list(range(num_users))
 
 # the taks size, this can be in the loop if the task size changes over the rounds
 
+# remaining_batch_numbers = [250, 250] # for 2 agent experiment
 remaining_batch_numbers = [len(dataset_train[i].dataset.target) / args.batch_size for i in range(0,num_users)] 
 remaining_times = list(np.array(remaining_batch_numbers) / np.array(computation_speeds[:num_users]))
 
+
+if args.version == 1:
+    for i in client_tier.keys():  # assign each server-side to its tier model
+        net_model_server_tier[i] = net_glob_server_tier[client_tier[i]]
     
 for iter in range(epochs):
     # If whether_FedAVG_base is True, initialize empty lists for train and test losses and accuracies
@@ -1790,25 +1837,18 @@ for iter in range(epochs):
     simulated_delay= np.zeros(num_users)
     
     
-    # here pairing
-    
-    agents_ordered_list = agents_list
-    agents_ordered_list = np.argsort(remaining_times)[::-1]
-    
-    paired_list, client_tier = pairing(agents_ordered_list, net_speeds, computation_speeds,
-                                     remaining_times, num_tiers, remaining_batch_numbers, batch_data_tier_size,
-                                     slow_fast_tier_training_time)
+
     
     for idx in idxs_users:
         # Log the client tier for each client in WandB
         wandb.log({"Client{}_Tier".format(idx): num_tiers - client_tier[idx] + 1, "epoch": iter}, commit=False) # check to tier be in accordance of the paper order
         
-        # # calculate the delay of server send model to clients
-        # data_server_to_client = 0
-        # for k in w_glob_client_tier[client_tier[idx]]:
-        #     data_server_to_client += sys.getsizeof(w_glob_client_tier[client_tier[idx]][k].storage())
-        # simulated_delay[idx] = data_server_to_client / net_speed[idx]
-        #     # wandb.log({"Client{}_Tier".format(i): client_tier[i], "epoch": iter}, commit=False)
+        # calculate the delay of server send model to clients
+        data_server_to_client = 0
+        for k in w_glob_client_tier[client_tier[idx]]:
+            data_server_to_client += sys.getsizeof(w_glob_client_tier[client_tier[idx]][k].storage())
+        simulated_delay[idx] = data_server_to_client / net_speed[idx]
+            # wandb.log({"Client{}_Tier".format(i): client_tier[i], "epoch": iter}, commit=False)
             
         data_transmited_fl_client = 0
         time_train_test_s = time.time()
@@ -1929,6 +1969,14 @@ for iter in range(epochs):
     client_tier_all.append(copy.deepcopy(client_tier))
     
 
+    # here pairing
+    
+    agents_ordered_list = agents_list
+    agents_ordered_list = np.argsort(remaining_times)[::-1]
+    
+    paired_list, client_tier, tau_i_list = pairing(agents_ordered_list, net_speeds, computation_speeds,
+                                      remaining_times, num_tiers+1, remaining_batch_numbers, batch_data_tier_size,
+                                      slow_fast_tier_training_time)
     
     if args.version == 1:
         for i in client_tier.keys():  # assign each server-side to its tier model
