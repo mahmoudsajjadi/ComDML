@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Jun  5 15:18:29 2023
-
-@author: seyedmahmouds
-"""
-
 def AgentRemainingTime(j, neighbors, speeds, remaining_times):
     # Estimate remaining time if agent j begin training collaboratively
     tau_j = remaining_times[j]
