@@ -127,7 +127,7 @@ class ResNet(nn.Module):
         if kwargs:
             self.local_v2 = kwargs['local_v2']
 
-        self.tier = tier  #Mahmoud
+        self.tier = tier 
 
         self.inplanes = 16
         self.dilation = 1
@@ -179,7 +179,7 @@ class ResNet(nn.Module):
                 if self.tier == 6 or self.tier == 5:
                     self.fc = nn.Linear(16 * block.expansion, num_classes)
                 if self.tier == 7:
-                    self.fc = nn.Linear(4 * block.expansion, num_classes)  # Mahmoud, should change based on the layer on client
+                    self.fc = nn.Linear(4 * block.expansion, num_classes)  
 
         self.KD = KD
         for m in self.modules():
@@ -364,7 +364,7 @@ class ResNet(nn.Module):
             x = self.relu(x)  # B x 16 x 32 x 32
             
             x = self.layer1(x)  # B x 16 x 32 x 32
-            extracted_features = x  # Mahmoud change   I saw OverflowError: integer 4228242568 does not fit in 'int' error  # it should work since I have used this after layer one in tier 4  MPI error
+            extracted_features = x  
     
             if self.local_loss == True:
                 if self.local_v2:
@@ -384,7 +384,7 @@ class ResNet(nn.Module):
             x = self.conv1(x)
             x = self.bn1(x)
             x = self.relu(x)  # B x 16 x 32 x 32
-            extracted_features = x  # Mahmoud change   I saw OverflowError: integer 4228242568 does not fit in 'int' error  # it should work since I have used this after layer one in tier 5  MPI error
+            extracted_features = x  
             
             if self.local_loss == True:
                 if self.local_v2:
@@ -411,7 +411,7 @@ class ResNet_server(nn.Module):
         self._norm_layer = norm_layer
         self.local_loss = local_loss
         
-        self.tier = tier  #Mahmoud
+        self.tier = tier 
 
         if self.tier == 7:
             self.inplanes = 16
@@ -499,7 +499,7 @@ class ResNet_server(nn.Module):
 
     def forward(self, x):
     
-        if self.tier == 1:  #Mahmoud
+        if self.tier == 1:  
             # x = self.conv1(x)
             # x = self.bn1(x)
             # x = self.relu(x)  # B x 16 x 32 x 32
@@ -605,7 +605,7 @@ def resnet56_server(c, pretrained=False, path=None, tier=5, **kwargs):
         model.load_state_dict(new_state_dict)
     return model
     
-#Mahmoud
+
 
 def resnet56_server_tier(c, pretrained=False, path=None, tier=5, **kwargs):
     """
@@ -670,7 +670,7 @@ class ResNet56_client_side_SFL(nn.Module):
         self._norm_layer = norm_layer
         self.local_loss = local_loss
         
-        self.tier = tier  #Mahmoud
+        self.tier = tier  
 
         if self.tier == 5 or self.tier == 4:
             self.inplanes = 16
