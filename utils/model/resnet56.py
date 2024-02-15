@@ -123,7 +123,7 @@ class ResNet(nn.Module):
         self._norm_layer = norm_layer
         self.local_loss = local_loss
 
-        self.tier = tier  #Mahmoud
+        self.tier = tier  
 
         self.inplanes = 16
         self.dilation = 1
@@ -168,8 +168,8 @@ class ResNet(nn.Module):
         if self.tier == 4 or self.tier == 3:
             self.fc = nn.Linear(16 * block.expansion, num_classes)
         if self.tier == 5:# or self.tier == 4:
-            # self.fc = nn.Linear(16 * block.expansion, num_classes)  # Mahmoud, should change based on the layer on client
-            self.fc = nn.Linear(4 * block.expansion, num_classes)  # Mahmoud, should change based on the layer on client
+            # self.fc = nn.Linear(16 * block.expansion, num_classes)  
+            self.fc = nn.Linear(4 * block.expansion, num_classes)  
         # self.fc = nn.Linear(32 * block.expansion, num_classes)
 
         self.KD = KD
@@ -214,12 +214,12 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-#Mahmoud     
+     
     
         
     def forward(self, x):
     
-        if self.tier == 1:  #Mahmoud
+        if self.tier == 1:  
             x = self.conv1(x)
             x = self.bn1(x)
             x = self.relu(x)  # B x 16 x 32 x 32
@@ -237,7 +237,7 @@ class ResNet(nn.Module):
             logits = self.fc(x_f)  # B x num_classes
             return logits, extracted_features
             
-        if self.tier == 2:  #Mahmoud
+        if self.tier == 2:  
             x = self.conv1(x)
             x = self.bn1(x)
             x = self.relu(x)  # B x 16 x 32 x 32
@@ -258,7 +258,7 @@ class ResNet(nn.Module):
             return logits, extracted_features
             
                         
-        if self.tier == 3:  #Mahmoud
+        if self.tier == 3: 
             x = self.conv1(x)
             x = self.bn1(x)
             x = self.relu(x)  # B x 16 x 32 x 32
@@ -277,7 +277,7 @@ class ResNet(nn.Module):
             logits = self.fc(x_f)  # B x num_classes
             return logits, extracted_features
 
-        if self.tier == 4:  #Mahmoud
+        if self.tier == 4:  
             x = self.conv1(x)
             x = self.bn1(x)
             x = self.relu(x)  # B x 16 x 32 x 32
@@ -285,7 +285,7 @@ class ResNet(nn.Module):
             # extracted_features = x
     
             x = self.layer1(x)  # B x 16 x 32 x 32
-            extracted_features = x  # Mahmoud change   I saw OverflowError: integer 4228242568 does not fit in 'int' error  # it should work since I have used this after layer one in tier 4  MPI error
+            extracted_features = x  
             # x = self.layer2(x)  # B x 32 x 16 x 16
             # x = self.layer3(x)  # B x 64 x 8 x 8
     
@@ -294,7 +294,7 @@ class ResNet(nn.Module):
             logits = self.fc(x_f)  # B x num_classes
             return logits, extracted_features            
             
-        if self.tier == 5:  #Mahmoud
+        if self.tier == 5:  
             x = self.conv1(x)
             x = self.bn1(x)
             x = self.relu(x)  # B x 16 x 32 x 32
@@ -302,7 +302,7 @@ class ResNet(nn.Module):
             # extracted_features = x
     
             # x = self.layer1(x)  # B x 16 x 32 x 32
-            extracted_features = x  # Mahmoud change   I saw OverflowError: integer 4228242568 does not fit in 'int' error  # it should work since I have used this after layer one in tier 5  MPI error
+            extracted_features = x  
             # x = self.layer2(x)  # B x 32 x 16 x 16
             # x = self.layer3(x)  # B x 64 x 8 x 8
     
@@ -323,7 +323,7 @@ class ResNet_server(nn.Module):
         self._norm_layer = norm_layer
         self.local_loss = local_loss
         
-        self.tier = tier  #Mahmoud
+        self.tier = tier  
 
         if self.tier == 5:
             self.inplanes = 16
@@ -410,7 +410,7 @@ class ResNet_server(nn.Module):
 
     def forward(self, x):
     
-        if self.tier == 1:  #Mahmoud
+        if self.tier == 1:  
             # x = self.conv1(x)
             # x = self.bn1(x)
             # x = self.relu(x)  # B x 16 x 32 x 32
@@ -427,7 +427,7 @@ class ResNet_server(nn.Module):
             x = self.fc(x_f)  # B x num_classes
             return x
             
-        if self.tier == 2:  #Mahmoud
+        if self.tier == 2: 
             # x = self.conv1(x)
             # x = self.bn1(x)
             # x = self.relu(x)  # B x 16 x 32 x 32
@@ -446,7 +446,7 @@ class ResNet_server(nn.Module):
             return x
             
               
-        if self.tier == 3:  #Mahmoud
+        if self.tier == 3: 
             # x = self.conv1(x)
             # x = self.bn1(x)
             # x = self.relu(x)  # B x 16 x 32 x 32
@@ -464,7 +464,7 @@ class ResNet_server(nn.Module):
             x = self.fc(x_f)  # B x num_classes
             return x
 
-        if self.tier == 4:  #Mahmoud
+        if self.tier == 4: 
             # x = self.conv1(x)
             # x = self.bn1(x)
             # x = self.relu(x)  # B x 16 x 32 x 32
@@ -481,7 +481,7 @@ class ResNet_server(nn.Module):
             x = self.fc(x_f)  # B x num_classes
             return x            
             
-        if self.tier == 5:  #Mahmoud
+        if self.tier == 5:  
             # x = self.conv1(x)
             # x = self.bn1(x)
             # x = self.relu(x)  # B x 16 x 32 x 32
@@ -523,7 +523,7 @@ def resnet56_server(c, pretrained=False, path=None, tier=5, **kwargs):
         model.load_state_dict(new_state_dict)
     return model
     
-#Mahmoud
+
 
 def resnet56_server_tier(c, pretrained=False, path=None, tier=5, **kwargs):
     """
@@ -588,7 +588,7 @@ class ResNet56_client_side_SFL(nn.Module):
         self._norm_layer = norm_layer
         self.local_loss = local_loss
         
-        self.tier = tier  #Mahmoud
+        self.tier = tier  
 
         if self.tier == 5 or self.tier == 4:
             self.inplanes = 16
