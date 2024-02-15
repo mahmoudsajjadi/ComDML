@@ -1,50 +1,7 @@
-''' Mahmoud, dcor from NoPeek code '''
-
-'''
-
-def pairwise_dist(A):
-    # Taken frmo https://stackoverflow.com/questions/37009647/compute-pairwise-distance-in-a-batch-without-replicating-tensor-in-tensorflow
-    #A = tf_print(A, [tf.reduce_sum(A)], message="A is")
-    r = tf.reduce_sum(A*A, 1)
-    #r = tf_print(r, [tf.reduce_sum(r)], message="r is")
-    r = tf.reshape(r, [-1, 1])
-    D = tf.maximum(r - 2*tf.matmul(A, tf.transpose(A)) + tf.transpose(r), 1e-7)
-    D = tf.sqrt(D)
-    return D
-
-def dist_corr(X, Y):
-    n = tf.cast(tf.shape(X)[0], tf.float32)
-    a = pairwise_dist(X)
-    b = pairwise_dist(Y)
-    A = a - tf.reduce_mean(a, axis=1) - tf.expand_dims(tf.reduce_mean(a, axis=0), axis=1) + tf.reduce_mean(a)
-    B = b - tf.reduce_mean(b, axis=1) - tf.expand_dims(tf.reduce_mean(b, axis=0), axis=1) + tf.reduce_mean(b)
-    dCovXY = tf.sqrt(tf.reduce_sum(A*B) / (n ** 2))
-    dVarXX = tf.sqrt(tf.reduce_sum(A*A) / (n ** 2))
-    dVarYY = tf.sqrt(tf.reduce_sum(B*B) / (n ** 2))
-    
-    dCorXY = dCovXY / tf.sqrt(dVarXX * dVarYY)
-    return dCorXY
-
-def custom_loss1(y_true,y_pred):
-    #y_pred = tf_print(y_pred, [tf.reduce_sum(y_pred)], message="y_pred is")
-    dcor = dist_corr(y_true,y_pred)
-    #dcor = tf_print(dcor, [tf.reduce_sum(dcor)], message="dcor is")
-    return dcor
-
-def custom_loss2(y_true,y_pred):
-    #y_pred = tf_print(y_pred, [tf.reduce_sum(y_pred)], message="y_pred is")
-    recon_loss = losses.categorical_crossentropy(y_true, y_pred)
-    return recon_loss
-
-'''
-
 
 import torch
 import torch.nn as nn
-#import tensorflow as tf
 
-
-# code from https://github.com/gkasieczka/DisCo/blob/master/Disco.py
 
 def distance_corr(var_1,var_2,normedweight,power=1):
     """var_1: First variable to decorrelate (eg mass)
