@@ -9,6 +9,17 @@ This repository includes the necessary code to replicate experiments and run Com
 - Python
 - PyTorch
 - NumPy
+- torchvision
+- pandas
+- scikit-learn
+- matplotlib
+- wandb
+
+To install the required Python packages, you can use pip:
+
+```bash
+pip install torch torchvision numpy pandas scikit-learn matplotlib wandb
+```
 
 ### Abstract
 Decentralized Multi-agent Learning (DML) enables collaborative model training while preserving data privacy. However, inherent heterogeneity in agents’ resources may lead to substantial variations in training times, causing straggler effects and resource wastage. To address this, ComDML balances workload among agents through decentralized workload offloading, leveraging local-loss split training. This approach optimizes workload balancing by considering both communication and computation capacities of agents. A dynamic decentralized pairing scheduler efficiently pairs agents and determines optimal offloading amounts. ComDML demonstrates robustness in heterogeneous environments, significantly reducing training time while maintaining model accuracy.
