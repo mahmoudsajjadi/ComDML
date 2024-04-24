@@ -32,3 +32,5 @@ ComDML employs local-loss-based split training to achieve workload balancing in 
 
 ### Decentralized Workload Balancing
 To effectively implement workload balancing, ComDML utilizes a dynamic decentralized pairing scheduler. This scheduler pairs agents based on their computation and communication capacities, minimizing overall training time. The training workflow involves split model profiling, agent pairing, and model aggregation, achieving resource optimization with minimal overhead.
+
+![Training Process](https://github.com/mahmoudsajjadi/ComDML/blob/main/training_process.png)
