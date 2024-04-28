@@ -1,7 +1,7 @@
-## ComDML: Communication-efficient Training Workload Balancing for Distributed Multi-agent Learning
+## Communication-Efficient Training Workload Balancing for Distributed Multi-Agent Learning
 ### Fully Distributed Split Federated Learning
 
-This repository contains the Python implementation of ComDML, a novel approach for Communication-efficient Training Workload Balancing in Decentralized Multi-Agent Learning (DML). ComDML aims to address the challenges of training workload imbalance in decentralized systems, ensuring efficient model training without a central server.
+This repository contains the Python implementation of ComDML, a novel approach for Communication-efficient Training Workload Balancing in Decentralized Multi-Agent Learning (DML). ComDML tackles the challenge of uneven training workloads in decentralized systems, facilitating efficient model training without relying on a central server. By enabling agents to collaborate and share the training burden, ComDML empowers scalable and resource-optimized DML applications. The paper describing ComDML is going to be published at the IEEE International Conference on Distributed Computing Systems (ICDCS) 2024, in New Jersey.
 
 ### Implementation
 This repository includes the necessary code to replicate experiments and run ComDML on various datasets and models. To run ComDML, ensure you have the following dependencies installed:
