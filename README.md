@@ -11,6 +11,7 @@ The training workflow for ComDML is illustrated here:
 To get an in-depth understanding of ComDML, watch the presentation from the ICDCS 2024 conference:
 [![Watch the video](https://img.youtube.com/vi/62QmwyW5tqc/0.jpg)](https://youtu.be/62QmwyW5tqc)
 
+The presentation file is available [here](https://github.com/mahmoudsajjadi/ComDML/blob/main/ComDML%20-%20Online%20.pptx).
 
 
 
