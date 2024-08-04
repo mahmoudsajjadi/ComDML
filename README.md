@@ -6,6 +6,12 @@ This repository contains the Python implementation of ComDML, a novel approach f
 The training workflow for ComDML is illustrated here:
 ![Training Process](https://github.com/mahmoudsajjadi/ComDML/blob/main/training_process.png)
 
+
+### Watch the Presentation
+To get an in-depth understanding of ComDML, watch the presentation from the ICDCS 2024 conference:
+[![Watch the video](https://img.youtube.com/vi/62QmwyW5tqc/0.jpg)](https://youtu.be/62QmwyW5tqc)
+
+
 ### Implementation
 This repository includes the necessary code to replicate experiments and run ComDML on various datasets and models. To run ComDML, ensure you have the following dependencies installed:
 
